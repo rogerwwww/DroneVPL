@@ -11,225 +11,200 @@
 #include "yuan.h"
 #include "link.h"
 #include "diagramwindow.h"
+#include "rec.h"
 
 
-TakeoffNode::TakeoffNode()
+TakeOffNode::TakeOffNode()
 {
-    time=0;
-    identifier="TakeoffNode";
+    identifier="TakeOff";
+    rank = 0;
+    altitude = 0;
 }
 
-void TakeoffNode::setTime(double t)
+void TakeOffNode::setAltitude(double a)
 {
-    time=t;
+    if(isSelected()&&a!=myAltitude())
+    {
+        altitude=a;
+        setText(tr("take off\n %1 m").arg(altitude));
+    }
 }
 
-double TakeoffNode::myTime()
+double TakeOffNode::myAltitude()
 {
-    return time;
+    return altitude;
 }
 
-void TakeoffNode::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
+void TakeOffNode::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
 {
     double t = QInputDialog::getDouble(event->widget(),
                            tr("Edit Text"), tr("Enter new text:"),
-                           QLineEdit::Normal, time);
-    time=t;
-
-    setText(tr("take off\n %1 s").arg(t));
-}
-
-QDataStream &operator <<(QDataStream &out,const TakeoffNode &node)
-{
-    out<<node.controlsId<<node.identifier<<node.zValue()
-      <<node.pos()<<node.time<<node.text()
-      <<node.textColor()<<node.outlineColor()
-      <<node.backgroundColor();
-    return out;
-}
-
-QDataStream &operator >>(QDataStream &in,TakeoffNode &node)
-{
-    int controlsId;
-    QString identifier;
-    double z;
-    QPointF position;
-    int time;
-    QString text;
-    QColor textColor;
-    QColor outlineColor;
-    QColor backgroundColor;
-
-    in>>controlsId>>identifier>>z>>position>>time
-      >>text>>textColor>>outlineColor>>backgroundColor;
-    node.controlsId=controlsId;
-    node.identifier=identifier;
-    node.setZValue(z);
-    node.setPos(position);
-    node.setTime(time);
-    node.setText(text);
-    node.setOutlineColor(outlineColor);
-    node.setBackgroundColor(backgroundColor);
-    return in;
+                           QLineEdit::Normal, altitude);
+    altitude = t;
+    setText(tr("take off\n %1 m").arg(t));
+    emit altitudeChanged(altitude);
 
 }
 
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-LandonNode::LandonNode()
+LandNode::LandNode()
 {
-    time=0;
-
-    identifier="LandonNode";
+    identifier="Land";
+    rank = 0;
 }
 
-void LandonNode::setTime(double t)
+
+
+
+void LandNode::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
 {
-    time=t;
+    ;
 }
 
-double LandonNode::myTime()
-{
-    return time;
-}
-
-void LandonNode::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
-{
-    double t = QInputDialog::getDouble(event->widget(),
-                           tr("Edit Time"), tr("Enter new time:"),
-                           QLineEdit::Normal, time);
-    time=t;
-    setText(tr("Land on\n %1 s").arg(t));
-}
-
-QVariant LandonNode::itemChange(GraphicsItemChange change,
+QVariant LandNode::itemChange(GraphicsItemChange change,
                     const QVariant &value)
-{
-    if (change & ItemPositionHasChanged) {
+{if (change & ItemPositionHasChanged){
+         if(this->collidingItems().isEmpty()||(this->collidingItems().count()==1&&dynamic_cast<Rec *>(this->collidingItems().first())!=0) )
+       {
+            yuan2->setPos(pos().x(),
+                         pos().y() - outlineRect().height()/2-yuan->boundingRect().height()/2);
+            foreach (Link *link, yuan2->myLinks)
+            {link->trackYuans();update();}
+            update();
+       }
+        else{
+            setPos(yuan2->pos().x(),
+                           yuan2->pos().y()+outlineRect().height()/2 +yuan->boundingRect().height()/2);
+        }}
+    return QGraphicsItem::itemChange(change, value);
+    /*if (change & ItemPositionHasChanged) {
         yuan2->setPos(pos().x(),
                      pos().y() - outlineRect().height()/2-yuan->boundingRect().height()/2);
         foreach (Link *link, yuan2->myLinks)
         {link->trackYuans();update();}
     }
-    return QGraphicsItem::itemChange(change, value);
+    return QGraphicsItem::itemChange(change, value);*/
 }
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////
-
-int TranslationNode::riseNodeNum=0;      int TranslationNode::fallNodeNum=0;
-int TranslationNode::advanceNodeNum=0;   int TranslationNode::backNodeNum=0;
-int TranslationNode::rightNodeNum=0;     int TranslationNode::leftNodeNum=0;
-TranslationNode::TranslationNode()
+GoNode::GoNode()
 {
     box=new QComboBox;
-    speed=0;
-    time=0;
+    Time=0;
+    groundspeed = 0.0;
 
-    identifier="RiseNode";
-
-    connect(box,SIGNAL(currentIndexChanged(int)),this,SLOT(setNewIdentifier()));
+    identifier="Go";
+    rank = 0;
+    connect(box,SIGNAL(currentIndexChanged(int)),this,SLOT(setDirection()));
 }
 
-TranslationNode::~TranslationNode()
+GoNode::~GoNode()
 {
     delete  box;
 }
 
-void TranslationNode::setTime(double t)
+void GoNode::setTime(double t)
 {
-    time=t;
+    if(isSelected()&&t!=myTime())
+    {
+        Time=t;
+        setText(tr("%1 s").arg(Time));
+    }
 }
 
-double TranslationNode::myTime()
+double GoNode::myTime()
 {
-    return time;
+    return Time;
 }
 
-void TranslationNode::setSpeed(double s)
+void GoNode::setGroundSpeed(double s)
 {
-    speed=s;
+    if(isSelected()&&s!=myGroundSpeed())
+    {
+        groundspeed=s;
+        setText(tr("%1 m/s").arg(groundspeed));
+    }
 }
 
-double TranslationNode::mySpeed()
+double GoNode::myGroundSpeed()
 {
-    return speed;
+    return groundspeed;
 }
 
-void TranslationNode::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
+void GoNode::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
 {
-    double s = QInputDialog::getDouble(event->widget(),
-                           tr("Edit Speed"), tr("Enter new speed:"),
-                           QLineEdit::Normal, speed);
+    double gs = QInputDialog::getDouble(event->widget(),
+                           tr("Edit GroudSpeed"), tr("Enter new GroundSpeed:"),
+                           QLineEdit::Normal, groundspeed);
     double t = QInputDialog::getDouble(event->widget(),
-                           tr("Edit Time"), tr("Enter new time:"),
-                           QLineEdit::Normal, time);
-    speed=s;time=t;
-    setText(tr(" %1 m/s \n %2 s").arg(s).arg(t));
+                           tr("Edit fly time"), tr("Enter new time:"),
+                           QLineEdit::Normal, groundspeed);
+    groundspeed=gs;
+    Time = t;
+    setText(tr(" %1 m/s \n %2 s").arg(gs).arg(t));
+    emit groundSpeedChanged(groundspeed);
 }
 
-QVariant TranslationNode::itemChange(GraphicsItemChange change,
+QVariant GoNode::itemChange(GraphicsItemChange change,
                     const QVariant &value)
 {
-    if (change & ItemPositionHasChanged) {
-        yuan->setPos(pos().x(),
-                     pos().y() + outlineRect().height()/2 + yuan->boundingRect().height()/2);
-        foreach (Link *link, yuan->myLinks)
-        {link->trackYuans();update();}
-        yuan2->setPos(pos().x() - outlineRect().width()/2 - yuan2->outlineRect().width()/2,
-                     pos().y());
-        foreach (Link *link, yuan2->myLinks)
-        {link->trackYuans();update();}
-        item->setPos(QPointF(pos().x()-40,
-                     (pos().y() - outlineRect().height()/2 - item->boundingRect().height())));
-    }
-    return QGraphicsItem::itemChange(change, value);
+    if (change & ItemPositionHasChanged){
+            if(this->collidingItems().isEmpty()||(this->collidingItems().count()==1&&dynamic_cast<Rec *>(this->collidingItems().first())!=0) )
+           {
+                yuan->setPos(pos().x(),
+                             pos().y() + outlineRect().height()/2 + yuan->boundingRect().height()/2);
+                foreach (Link *link, yuan->myLinks)
+                {link->trackYuans();update();}
+                yuan2->setPos(pos().x() - outlineRect().width()/2 - yuan2->outlineRect().width()/2,
+                             pos().y());
+                foreach (Link *link, yuan2->myLinks)
+                {link->trackYuans();update();}
+                item->setPos(QPointF(pos().x()-40,
+                             (pos().y() - outlineRect().height()/2 - item->boundingRect().height())));
+
+           }
+            else{
+                setPos(yuan2->pos().x()+ outlineRect().width()/2 + yuan2->outlineRect().width()/2,
+                               yuan2->pos().y());
+            }}
+        return QGraphicsItem::itemChange(change, value);
+
 }
 
-void TranslationNode::setNewIdentifier()
+void GoNode::setDirection()
 {
     int index=box->currentIndex();
     switch (index) {
     case 0:
     {
-        identifier="RiseNode";
-        riseNodeNum++;
-        controlsId=riseNodeNum;
+        direction="GoUp";
         break;
     }
     case 1:
     {
-        identifier="FallNode";
-        fallNodeNum++;
-        controlsId=fallNodeNum;
+        direction="GoDown";
         break;
     }
     case 2:
     {
-        identifier="AdvanceNode";
-        advanceNodeNum++;
-        controlsId=advanceNodeNum;
+        direction="Forward";
         break;
     }
     case 3:
     {
-        identifier="BackNode";
-        backNodeNum++;
-        controlsId=backNodeNum;
+        direction="Backward";
         break;
     }
     case 4:
     {
-        identifier="RightNode";
-        rightNodeNum++;
-        controlsId=rightNodeNum;
+        direction="GoRight";
         break;
     }
     case 5:
     {
-        identifier="LeftNode";
-        leftNodeNum++;
-        controlsId=leftNodeNum;
+        direction="GoLeft";
         break;
     }
     default:
@@ -327,21 +302,28 @@ void SomeNode::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
 QVariant SomeNode::itemChange(GraphicsItemChange change,
                     const QVariant &value)
 {
-    if (change & ItemPositionHasChanged) {
-        yuan->setPos(pos().x(),
-                     pos().y() + outlineRect().height()/2 + yuan->boundingRect().height()/2);
-        foreach (Link *link, yuan->myLinks)
-        {link->trackYuans();update();}
+    if (change & ItemPositionHasChanged){
+         if(this->collidingItems().isEmpty()||(this->collidingItems().count()==1&&dynamic_cast<Rec *>(this->collidingItems().first())!=0) )
+           {
+                yuan->setPos(pos().x(),
+                             pos().y() + outlineRect().height()/2 + yuan->boundingRect().height()/2);
+                foreach (Link *link, yuan->myLinks)
+                {link->trackYuans();update();}
 
-        yuan2->setPos(pos().x() - outlineRect().width()/2 - yuan2->outlineRect().width()/2,
-                     pos().y());
-        foreach (Link *link, yuan2->myLinks)
-        {link->trackYuans();update();}
+                yuan2->setPos(pos().x() - outlineRect().width()/2 - yuan2->outlineRect().width()/2,
+                             pos().y());
+                foreach (Link *link, yuan2->myLinks)
+                {link->trackYuans();update();}
 
-        item->setPos(QPointF(pos().x()-40,
-                     (pos().y() - outlineRect().height()/2 - item->boundingRect().height())));
-    }
-    return QGraphicsItem::itemChange(change, value);
+                item->setPos(QPointF(pos().x()-40,
+                             (pos().y() - outlineRect().height()/2 - item->boundingRect().height())));
+               // update();
+           }
+            else{
+                setPos(yuan2->pos().x()+ outlineRect().width()/2 + yuan2->outlineRect().width()/2,
+                               yuan2->pos().y());
+            }}
+        return QGraphicsItem::itemChange(change, value);
 }
 
 void SomeNode::setNewText()
@@ -392,8 +374,218 @@ void SomeNode::setNewIdentifier()
     }
 }
 
+//=======================TurnNode=========================
+TurnNode::TurnNode()
+{
+    box=new QComboBox;
+    Angel=0;
+
+    connect(box,SIGNAL(currentIndexChanged(int)),this,SLOT(setDirection()));
+
+    identifier="TurnLeftNode";
+    rank = 0;
+}
+
+TurnNode::~TurnNode()
+{
+    delete box;
+}
+
+void TurnNode::setAngel(double a)
+{
+    Angel=a;
+}
+
+double TurnNode::myAngel()
+{
+    return Angel;
+}
+
+void TurnNode::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
+{
+    double a = QInputDialog::getDouble(event->widget(),
+                           tr("Edit Angel"), tr("Enter new angel:"),
+                           QLineEdit::Normal, Angel);
+    setText(tr(" %1 ").arg(a));
+    Angel=a;
+}
+
+QVariant TurnNode::itemChange(GraphicsItemChange change,
+                    const QVariant &value)
+{
+    if (change & ItemPositionHasChanged){
+         if(this->collidingItems().isEmpty()||(this->collidingItems().count()==1&&dynamic_cast<Rec *>(this->collidingItems().first())!=0) )
+           {
+                yuan->setPos(pos().x(),
+                             pos().y() + outlineRect().height()/2 + yuan->boundingRect().height()/2);
+                foreach (Link *link, yuan->myLinks)
+                {link->trackYuans();update();}
+
+                yuan2->setPos(pos().x() - outlineRect().width()/2 - yuan2->outlineRect().width()/2,
+                             pos().y());
+                foreach (Link *link, yuan2->myLinks)
+                {link->trackYuans();update();}
+
+                item->setPos(QPointF(pos().x()-40,
+                             (pos().y() - outlineRect().height()/2 - item->boundingRect().height())));
+               // update();
+           }
+            else{
+                setPos(yuan2->pos().x()+ outlineRect().width()/2 + yuan2->outlineRect().width()/2,
+                               yuan2->pos().y());
+            }}
+        return QGraphicsItem::itemChange(change, value);
+}
 
 
+void TurnNode::setDirection()
+{
+    int index=box->currentIndex();
+    switch (index) {
+    case 0:
+    {
+        direction="TurnLeft";
+        break;
+    }
+    case 1:
+    {
+        direction="TurnRight";
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+//=========================HoverNode=======================
+HoverNode::HoverNode()
+{
+    time=0;
+    identifier="Hover";
+    rank = 0;
+}
+
+HoverNode::~HoverNode()
+{
+    ;
+}
+
+void HoverNode::setTime(double t)
+{
+    if(isSelected()&&t!=myTime())
+    {
+        time=t;
+        setText(tr(" Hover \n %1 s").arg(time));
+    }
+}
+
+double HoverNode::myTime()
+{
+    return time;
+}
+
+void HoverNode::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
+{
+        double t = QInputDialog::getDouble(event->widget(),
+                               tr("Edit Time"), tr("Enter new time:"),
+                               QLineEdit::Normal, time);
+        time=t;
+        setText(tr(" Hover \n %1 s").arg(t));
+        emit timeChanged(time);
+}
+
+QVariant HoverNode::itemChange(GraphicsItemChange change,
+                    const QVariant &value)
+{
+    if (change & ItemPositionHasChanged){
+         if(this->collidingItems().isEmpty()||(this->collidingItems().count()==1&&dynamic_cast<Rec *>(this->collidingItems().first())!=0) )
+           {
+                yuan->setPos(pos().x(),
+                             pos().y() + outlineRect().height()/2 + yuan->boundingRect().height()/2);
+                foreach (Link *link, yuan->myLinks)
+                {link->trackYuans();update();}
+
+                yuan2->setPos(pos().x() - outlineRect().width()/2 - yuan2->outlineRect().width()/2,
+                             pos().y());
+                foreach (Link *link, yuan2->myLinks)
+                {link->trackYuans();update();}
+
+                //item->setPos(QPointF(pos().x()-40,
+                             //(pos().y() - outlineRect().height()/2 - item->boundingRect().height())));
+               // update();
+           }
+            else{
+                setPos(yuan2->pos().x()+ outlineRect().width()/2 + yuan2->outlineRect().width()/2,
+                               yuan2->pos().y());
+            }}
+        return QGraphicsItem::itemChange(change, value);
+}
+
+
+//===============================DelayNode===========================
+DelayNode::DelayNode()
+{
+    time=0;
+    rank = 0;
+    identifier="Delay";
+}
+
+DelayNode::~DelayNode()
+{
+    ;
+}
+
+void DelayNode::setTime(double t)
+{
+    if(isSelected()&&t!=myTime())
+    {
+        time=t;
+        setText(tr(" Delay \n %1 s").arg(time));
+    }
+    time=t;
+}
+
+double DelayNode::myTime()
+{
+    return time;
+}
+
+void DelayNode::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
+{
+        double t = QInputDialog::getDouble(event->widget(),
+                               tr("Edit Time"), tr("Enter new time:"),
+                               QLineEdit::Normal, time);
+        time=t;
+        setText(tr(" Delay \n %1 s").arg(t));
+        emit timeChanged(t);
+}
+
+QVariant DelayNode::itemChange(GraphicsItemChange change,
+                    const QVariant &value)
+{
+    if (change & ItemPositionHasChanged){
+         if(this->collidingItems().isEmpty()||(this->collidingItems().count()==1&&dynamic_cast<Rec *>(this->collidingItems().first())!=0) )
+           {
+                yuan->setPos(pos().x(),
+                             pos().y() + outlineRect().height()/2 + yuan->boundingRect().height()/2);
+                foreach (Link *link, yuan->myLinks)
+                {link->trackYuans();update();}
+
+                yuan2->setPos(pos().x() - outlineRect().width()/2 - yuan2->outlineRect().width()/2,
+                             pos().y());
+                foreach (Link *link, yuan2->myLinks)
+                {link->trackYuans();update();}
+
+                //item->setPos(QPointF(pos().x()-40,
+                             //(pos().y() - outlineRect().height()/2 - item->boundingRect().height())));
+               // update();
+           }
+            else{
+                setPos(yuan2->pos().x()+ outlineRect().width()/2 + yuan2->outlineRect().width()/2,
+                               yuan2->pos().y());
+            }}
+        return QGraphicsItem::itemChange(change, value);
+}
 
 
 
